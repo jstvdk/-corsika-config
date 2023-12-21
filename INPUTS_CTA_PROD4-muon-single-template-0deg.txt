@@ -1,0 +1,742 @@
+* CORSIKA inputs file template for CTA prod-3 simulations of vertical muons into single telescopes.
+* Starting altitudes, angles, and maximum impact parameters are site and telescope-type specific.
+* The idea here is to simulate muons which _generally_ will result in complete rings within the
+* field of view. For an unbiased simulation, higher starting altitudes, wider off-axis angles
+* and wider ranges of impact parameters need to be covered, in most cases only resulting in
+* partial rings.
+* Includes site definitions for actual CTA North (La Palma) and CTA South (Paranal) site
+* as well El Leoncito, Aar, SAC and many other site candidates (selected by pre-processor),
+* for OBSLEV, ATMOSPHERE, and MAGNET parameters (not setting magnetic declination).
+* SEEDs need to be re-generated for each simulation run separately!!!
+*
+* Many parameters can be overridden in the preprocessor stage, including
+*  - the site, by defining one of
+*       SITE_PARANAL     for actual CTA South site parameters (alternative: CTA_SOUTH)
+*       SITE_LA_PALMA    for actual CTA North site parameters (alternative: CTA_NORTH)
+*       SITE_LEONCITO
+*       SITE_LEONCITO_1650
+*       SITE_AAR
+*       SITE_AAR_500
+*       SITE_SAC
+*       SITE_ARMAZONES
+*       SITE_ARMAZONES_2K
+*       SITE_ARMAZONES_2000
+*       SITE_SPM
+*       SITE_US
+*       SITE_TENERIFE
+*       SITE_HANLE
+*       SITE_HESS
+*       SITE_PROD1
+*  - PRMPAR for primary particle type (default: 6)
+*  - EMIN & EMAX for energy range (note: in TeV units! Default: 0.004 1.0)
+*  - ESLOPE for spectral index (note: should be negative! Default: -2.0)
+*  - ZENITH_ANGLE (in degrees; default: 0)
+*  - AZIMUTH_ANGLE (in degrees; default: 180 = from [geomagnetic] North)
+*    or as named alternatives: FROM_SOUTH, FROM_EAST, FROM_WEST
+*  - DIFFUSE for telescope-type adapted VIEWCONE range
+*  - VIEWCONE for manually selected VIEWCONE range
+*  - CSCAT & NSCAT for core distance range and number of 'shower' uses
+*    (note: CSCAT value in meters!)
+*  - the telescope type class with one of
+*       TEL_LST  ->  pipes into script run_sim_cta-prod3-muon-LST
+*       TEL_MST  ->  pipes into script run_sim_cta-prod3-muon-MST
+*         may be more specific: MST_NC, MST_FC, MST_SC
+*       TEL_SST  ->  pipes into script run_sim_cta-prod3-muon-SST
+*         may be more specific: SST_1M, SST_ASTRI, SST_GCT
+*  - WRITE_CORSIKA_FILE -> write a file with photon bunches in the
+*    CORSIKA working directory rather than piping it into a
+*    matching telescope simulation.
+*
+* =============== Corsika INPUTS =======================
+*
+* [ Job parameters ]
+*
+RUNNR   1                               // Number of run, to be auto-numbered by job submission
+EVTNR   1                               // Number of first shower event (usually 1)
+*
+* [ Random number generator: 4 sequences used in IACT mode ]
+*
+SEED   385928125   401   0              // Seed for 1st random number sequence, to be re-generated
+SEED   827619802   859   0              // Seed for 2nd random number sequence, to be re-generated
+SEED   195989238   390   0              // Seed for 3rd random number sequence, to be re-generated
+SEED   539053819   323   0              // Seed for 4th random number sequence, to be re-generated
+*
+* [ Primary particle options ]
+*
+PRMPAR  6             // mu-
+#ifdef PRMPAR
+PRMPAR $(PRMPAR)
+#endif
+*
+#ifndef ONAXIS
+#define DIFFUSE 1
+#endif
+* ERANGE  5.832 1E3     // Energy range of primary particle (in GeV): muons with 50% opening angle or more
+ERANGE  8.418 1E3     // Energy range of primary particle (in GeV): muons with 80% opening angle or more
+#ifdef EMIN
+# ifdef EMAX
+ERANGE   $(EMIN)E3 $(EMAX)E3 // Requires EMIN and EMAX in units of TeV.
+# endif
+#endif
+*
+ESLOPE  -2.0          // Slope of primary energy spectrum (-2.0 is equal CPU time per decade)
+#ifdef ESLOPE
+ESLOPE $(ESLOPE)             // Requires spectral slope ESLOPE (<0)
+#endif
+*
+NSHOW   1000                         // number of showers to generate
+#ifdef NSHOW
+NSHOW    $(NSHOW)            // Requires NSHOW environment variable.
+#endif
+*
+THETAP  0.  0.      // Range of zenith angles (degrees)
+#ifdef ZENITH_ANGLE
+THETAP  $(ZENITH_ANGLE) $(ZENITH_ANGLE)      // Range of zenith angles (degrees)
+#endif
+*
+PHIP   180. 180.      // Range of azimuth angles (degree): primaries coming from North
+#ifdef FROM_SOUTH
+PHIP    0. 0.         // Range of azimuth angles (degree): primaries coming from South
+#else
+# ifdef FROM_EAST
+PHIP    90. 90.       // Range of azimuth angles (degree): primaries coming from East
+# else
+#  ifdef FROM_WEST
+PHIP   270. 270.      // Range of azimuth angles (degree): primaries coming from West
+#  else
+PHIP   180. 180.      // Range of azimuth angles (degree): primaries coming from North
+#  endif
+# endif
+#endif
+#ifdef AZIMUTH_ANGLE
+PHIP   $(AZIMUTH_ANGLE) $(AZIMUTH_ANGLE)     // Manually set azimuth angle (degrees)
+#endif
+*
+#ifndef DIFFUSE
+VIEWCONE 0. 0.        // Can be a cone around fixed THETAP/PHIP (gamma point source)
+#else
+# ifdef TEL_LST
+* VIEWCONE 0. 2.0     // Such that at half of maximum Cherenkov angle the ring still fits into FoV. (LST: actual FoV-diam=4.6 deg)
+* VIEWCONE 0. 1.1     // Such that at maximum Cherenkov angle the ring still fits into FoV. (LST: actual FoV-diam=4.6 deg)
+VIEWCONE 0. 0.9     // Such that at maximum Cherenkov angle the ring still fits into FoV. (LST: required FoV-diam=4.2 deg)
+# endif
+# ifdef TEL_MST
+* VIEWCONE 0. 3.4     // Such that at half of maximum Cherenkov angle the ring still fits into FoV. (MST: actual FoV-diam=8.0 deg)
+* VIEWCONE 0. 2.8     // Such that at maximum Cherenkov angle the ring still fits into FoV. (MST: actual FoV-diam=8.0 deg)
+VIEWCONE 0. 2.3     // Such that at maximum Cherenkov angle the ring still fits into FoV. (MST: required FoV-diam=7.0 deg)
+# endif
+# ifdef TEL_SST
+* VIEWCONE 0. 3.9     // Such that at half of maximum Cherenkov angle the ring still fits into FoV. (4m SST: actual FoV-diam=9.0 deg)
+* VIEWCONE 0. 3.3     // Such that at maximum Cherenkov angle the ring still fits into FoV. (4m SST: actual FoV-diam=9.0 deg)
+VIEWCONE 0. 2.8     // Such that at maximum Cherenkov angle the ring still fits into FoV. (4m SST: required FoV-diam=8.0 deg)
+# endif
+#endif
+#ifdef VIEWCONE
+VIEWCONE 0. $(VIEWCONE)        // Can be a cone around fixed THETAP/PHIP (gamma point source)
+#endif
+*
+* [ Site specific options ]
+*
+#ifdef CTA_NORTH
+# define SITE_LA_PALMA 1
+#endif
+#ifdef CTA_SOUTH
+# define SITE_PARANAL 1
+#endif
+*
+#ifdef SITE_PARANAL
+* The selected CTA South site is now near the ESO Paranal observatory:
+*   24.683429 deg South, 70.316345 deg West, altitude: 2150 m a.s.l.
+* Atmosphere 26 at altitude 2150.0 m:
+*   Atmospheric depth at ground level: 798.805 g/cm^2
+*   Density at ground level: 0.00095108 g/cm^3
+*   Refractivity at ground level: 0.00021986
+*   Maximum Cherenkov angle at ground level: 1.2014 deg.
+*   Atmospheric depth at ground level: 798.805 g/cm^2
+*   Density at ground level: 0.00095108 g/cm^3
+*   Refractivity at ground level: 0.00021986
+*   Maximum Cherenkov angle at ground level: 1.2014 deg.
+*   Energy for 50% of maximum opening angle: 5.832 GeV
+*   Energy for 80% of maximum opening angle: 8.418 GeV
+*   Energy for 90% of maximum opening angle: 11.59 GeV
+*   Cherenkov light emitted at half of max. Ch. angle arriving within given dist. from particle impact (no bending/scattering):
+*     Emission at h=2.579 km a.s.l., t=758.782 g/cm^2 (half of 1.176 deg.): within 4.400 m.
+*     Emission at h=2.883 km a.s.l., t=731.668 g/cm^2 (half of 1.158 deg.): within 7.400 m.
+*     Emission at h=3.477 km a.s.l., t=680.627 g/cm^2 (half of 1.123 deg.): within 13.000 m.
+*     Emission at h=4.770 km a.s.l., t=580.110 g/cm^2 (half of 1.050 deg.): within 24.000 m.
+# ifdef TEL_SST
+FIXCHI 750.
+# endif
+# ifdef TEL_MST
+FIXCHI 670.
+# endif
+# ifdef TEL_LST
+FIXCHI 570.
+# endif
+OBSLEV 2150.E2      // Observation level (in cm) for CTA near Paranal
+ATMOSPHERE 26 Y     // Should be slightly better for Paranal than profiles 1 (tropical) or 10 (HESS)
+* MAGNET 21.325 -8.926   // Magnetic field at assumed site [H, Z] (muT) (about the same as for Armazones site), 2015.
+* ARRANG  0.             // Rotation of array to north [D] (degree); use zero here for any site for now
+* Geomagnetic field for 2020.0:
+MAGNET 20.925 -9.119 // Magnetic field at Paranal site [H, Z] (muT), 2020.
+ARRANG -3.433        // Necessary rotation angle to account for B field declination (deg.), 2020.
+#endif
+*
+#ifdef SITE_LA_PALMA
+* The geographical coordinates of the La Palma site are:
+* 28.762158 deg North, 17.891571 deg West, altitude: 2147 to 2233 m altitude m a.s.l. (center at 2180 m).
+* Atmosphere 36 at altitude 2180.0 m:
+*   Atmospheric depth at ground level: 812.135 g/cm^2
+*   Density at ground level: 0.000965095 g/cm^3
+*   Refractivity at ground level: 0.000223106
+*   Maximum Cherenkov angle at ground level: 1.2102 deg.
+*   Cherenkov light emitted at half of max. Ch. angle arriving within given dist. from particle impact (no bending/scattering):
+*     Emission at h=2.606 km a.s.l., t=771.839 g/cm^2 (half of 1.185 deg.): within 4.400 m.
+*     Emission at h=2.907 km a.s.l., t=744.548 g/cm^2 (half of 1.167 deg.): within 7.400 m.
+*     Emission at h=3.495 km a.s.l., t=693.117 g/cm^2 (half of 1.133 deg.): within 13.000 m.
+*     Emission at h=4.772 km a.s.l., t=591.946 g/cm^2 (half of 1.061 deg.): within 24.000 m.
+# ifdef TEL_SST
+FIXCHI 760.
+# endif
+# ifdef TEL_MST
+FIXCHI 683.
+# endif
+# ifdef TEL_LST
+FIXCHI 580.
+# endif
+OBSLEV 2180.E2      // Observation level (in cm) for lowest telescope
+ATMOSPHERE 36 Y     // Should be slightly better for La Palma than profiles 1 (tropical)
+* MAGNET 30.541 23.814   // Magnetic field at assumed site [H, Z] (muT) (for La Palma site), 2015.
+* ARRANG  0.            // Rotation of array to north [D] (degree); use zero here for any site for now
+MAGNET 30.576 23.571    // La Palma, 2020.0
+ARRANG -5.3195          // La Palma, 2020.0
+#endif
+*
+#ifdef SITE_LEONCITO
+* The geographical coordinates of the Leoncito site candidate are:
+* 31:43:33 (d:m:s) South - 69:15:93 (d:m:s) West (WGS84, position of the meteorological station - June 2011)
+* Altitude: 2662 m a.s.l.
+* Atmosphere 22 at altitude 2662.0 m:
+*   Atmospheric depth at ground level: 749.716 g/cm^2
+*   Density at ground level: 0.00090638 g/cm^3
+*   Refractivity at ground level: 0.000209475
+*   Maximum Cherenkov angle at ground level: 1.1726 deg.
+*   Cherenkov light emitted at half of max. Ch. angle arriving within given dist. from particle impact (no bending/scattering):
+*     Emission at h=3.102 km a.s.l., t=710.853 g/cm^2 (half of 1.147 deg.): within 4.400 m.
+*     Emission at h=3.413 km a.s.l., t=684.128 g/cm^2 (half of 1.129 deg.): within 7.400 m.
+*     Emission at h=4.024 km a.s.l., t=634.610 g/cm^2 (half of 1.094 deg.): within 13.000 m.
+*     Emission at h=5.357 km a.s.l., t=536.207 g/cm^2 (half of 1.020 deg.): within 24.000 m.
+# ifdef TEL_SST
+FIXCHI 710.
+# endif
+# ifdef TEL_MST
+FIXCHI 634.
+# endif
+# ifdef TEL_LST
+FIXCHI 536.
+# endif
+OBSLEV  2662.E2       // Observation level (in cm) for El Leoncito
+ATMOSPHERE 22 Y       // Should be slightly better for El Leoncito than profile 1 (tropical)
+MAGNET  19.9  -12.6   // Magnetic field at assumed site [H, Z] (muT) (for El Leoncito site)
+ARRANG  0.            // Rotation of array to north [D] (degree); use zero here for any site for now
+#endif
+*
+#ifdef SITE_LEONCITO_1650
+* The geographical coordinates of the Leoncito site candidate are:
+* 31:43:33 (d:m:s) South - 69:15:93 (d:m:s) West (WGS84, position of the meteorological station - June 2011)
+* Altitude: 2662 m a.s.l.
+* OBSLEV  2662.E2       // Observation level (in cm) for El Leoncito
+* This is for the alternative site at a lower altitide ('Leoncito++'):
+* Atmosphere 22 at altitude 1650.0 m:
+*   Atmospheric depth at ground level: 846.276 g/cm^2
+*   Density at ground level: 0.00100332 g/cm^3
+*   Refractivity at ground level: 0.000231944
+*   Maximum Cherenkov angle at ground level: 1.2339 deg.
+*   Cherenkov light emitted at half of max. Ch. angle arriving within given dist. from particle impact (no bending/scattering):
+*     Emission at h=2.067 km a.s.l., t=805.425 g/cm^2 (half of 1.208 deg.): within 4.400 m.
+*     Emission at h=2.362 km a.s.l., t=777.295 g/cm^2 (half of 1.191 deg.): within 7.400 m.
+*     Emission at h=2.938 km a.s.l., t=725.173 g/cm^2 (half of 1.156 deg.): within 13.000 m.
+*     Emission at h=4.186 km a.s.l., t=621.859 g/cm^2 (half of 1.085 deg.): within 24.000 m.
+# ifdef TEL_SST
+FIXCHI 805.
+# endif
+# ifdef TEL_MST
+FIXCHI 725.
+# endif
+# ifdef TEL_LST
+FIXCHI 621.
+# endif
+OBSLEV  1650.E2       // Observation level (in cm) for El Leoncito++
+ATMOSPHERE 22 Y       // Should be slightly better for El Leoncito than profile 1 (tropical)
+MAGNET  19.9  -12.6   // Magnetic field at assumed site [H, Z] (muT) (for El Leoncito site)
+ARRANG  0.            // Rotation of array to north [D] (degree); use zero here for any site for now
+#endif
+*
+#ifdef SITE_AAR
+* The geographical coordinates of the Aar site candidate are:
+*   26.69 deg South, 16.46 deg East, altitude: 1640 m a.s.l.
+* Atmosphere 24 at altitude 1640.0 m:
+*   Atmospheric depth at ground level: 850.608 g/cm^2
+*   Density at ground level: 0.00100309 g/cm^3
+*   Refractivity at ground level: 0.000231918
+*   Maximum Cherenkov angle at ground level: 1.2339 deg.
+*   Cherenkov light emitted at half of max. Ch. angle arriving within given dist. from particle impact (no bending/scattering):
+*     Emission at h=2.057 km a.s.l., t=809.775 g/cm^2 (half of 1.209 deg.): within 4.400 m.
+*     Emission at h=2.352 km a.s.l., t=781.644 g/cm^2 (half of 1.191 deg.): within 7.400 m.
+*     Emission at h=2.928 km a.s.l., t=729.503 g/cm^2 (half of 1.156 deg.): within 13.000 m.
+*     Emission at h=4.177 km a.s.l., t=626.171 g/cm^2 (half of 1.084 deg.): within 24.000 m.
+# ifdef TEL_SST
+FIXCHI 809.
+# endif
+# ifdef TEL_MST
+FIXCHI 729.
+# endif
+# ifdef TEL_LST
+FIXCHI 626.
+# endif
+OBSLEV 1640.E2      // Observation level (in cm) for Aar
+ATMOSPHERE 24 Y     // Should be slightly better for Aar than profiles 1 (tropical) or 10 (HESS)
+MAGNET 10.9 -24.9   // Magnetic field at assumed site [H, Z] (muT) (for Aar site)
+ARRANG  0.            // Rotation of array to north [D] (degree); use zero here for any site for now
+#endif
+*
+#ifdef SITE_AAR_500
+* The geographical coordinates of the Aar site candidate are:
+*   26.69 deg South, 16.46 deg East, altitude: 1640 m a.s.l.
+* Atmosphere 24 at altitude 500.0 m:
+*   Atmospheric depth at ground level: 971.564 g/cm^2
+*   Density at ground level: 0.00112066 g/cm^3
+*   Refractivity at ground level: 0.000259209
+*   Maximum Cherenkov angle at ground level: 1.3044 deg.
+*   Cherenkov light emitted at half of max. Ch. angle arriving within given dist. from particle impact (no bending/scattering):
+*     Emission at h=0.894 km a.s.l., t=928.407 g/cm^2 (half of 1.280 deg.): within 4.400 m.
+*     Emission at h=1.171 km a.s.l., t=898.798 g/cm^2 (half of 1.263 deg.): within 7.400 m.
+*     Emission at h=1.712 km a.s.l., t=843.476 g/cm^2 (half of 1.229 deg.): within 13.000 m.
+*     Emission at h=2.871 km a.s.l., t=734.486 g/cm^2 (half of 1.160 deg.): within 24.000 m.
+# ifdef TEL_SST
+FIXCHI 920.
+# endif
+# ifdef TEL_MST
+FIXCHI 835.
+# endif
+# ifdef TEL_LST
+FIXCHI 725.
+# endif
+OBSLEV 500.E2      // Observation level (in cm) of low-altitude test site otherwise similar to Aar
+ATMOSPHERE 24 Y     // Should be slightly better for Aar than profiles 1 (tropical) or 10 (HESS)
+MAGNET 10.9 -24.9   // Magnetic field at assumed site [H, Z] (muT) (for Aar site)
+ARRANG  0.            // Rotation of array to north [D] (degree); use zero here for any site for now
+#endif
+*
+#ifdef SITE_SAC
+* The geographical coordinates of the San Antonio de los Cobres (SAC) site candidate are:
+*   24:02:42 (d:m:s) South, 66:14:05 (d:m:s) West, altitude: 3600 m a.s.l.
+* Atmosphere 22 at altitude 3600.0 m:
+*   Atmospheric depth at ground level: 668.606 g/cm^2
+*   Density at ground level: 0.000823805 g/cm^3
+*   Refractivity at ground level: 0.000190347
+*   Maximum Cherenkov angle at ground level: 1.1178 deg.
+*   Cherenkov light emitted at half of max. Ch. angle arriving within given dist. from particle impact (no bending/scattering):
+*     Emission at h=4.062 km a.s.l., t=631.593 g/cm^2 (half of 1.092 deg.): within 4.400 m.
+*     Emission at h=4.390 km a.s.l., t=606.084 g/cm^2 (half of 1.073 deg.): within 7.400 m.
+*     Emission at h=5.035 km a.s.l., t=558.846 g/cm^2 (half of 1.038 deg.): within 13.000 m.
+*     Emission at h=6.457 km a.s.l., t=464.907 g/cm^2 (half of 0.963 deg.): within 24.000 m.
+# ifdef TEL_SST
+FIXCHI 631.
+# endif
+# ifdef TEL_MST
+FIXCHI 558.
+# endif
+# ifdef TEL_LST
+FIXCHI 464.
+# endif
+OBSLEV 3600.E2      // Observation level (in cm) for SAC
+ATMOSPHERE 22 Y     // Should be slightly better for SAC than profiles 1 (tropical) or 10 (HESS); 28 even better
+MAGNET 20.9 -8.9   // Magnetic field at assumed site [H, Z] (muT) (for SAC site)
+ARRANG  0.            // Rotation of array to north [D] (degree); use zero here for any site for now
+#endif
+*
+#ifdef SITE_ARMAZONES
+* The geographical coordinates of the Armazones site candidate are:
+*   24.57 deg South, 70.20 deg West, altitude: 2500 m a.s.l.
+* Atmosphere 26 at altitude 2500.0 m:
+*   Atmospheric depth at ground level: 765.991 g/cm^2
+*   Density at ground level: 0.000918003 g/cm^3
+*   Refractivity at ground level: 0.000212194
+*   Maximum Cherenkov angle at ground level: 1.1802 deg.
+*   Cherenkov light emitted at half of max. Ch. angle arriving within given dist. from particle impact (no bending/scattering):
+*     Emission at h=2.937 km a.s.l., t=726.928 g/cm^2 (half of 1.154 deg.): within 4.400 m.
+*     Emission at h=3.246 km a.s.l., t=700.059 g/cm^2 (half of 1.136 deg.): within 7.400 m.
+*     Emission at h=3.853 km a.s.l., t=650.079 g/cm^2 (half of 1.101 deg.): within 13.000 m.
+*     Emission at h=5.177 km a.s.l., t=551.214 g/cm^2 (half of 1.027 deg.): within 24.000 m.
+# ifdef TEL_SST
+FIXCHI 726.
+# endif
+# ifdef TEL_MST
+FIXCHI 650.
+# endif
+# ifdef TEL_LST
+FIXCHI 551.
+# endif
+OBSLEV 2500.E2      // Observation level (in cm) for Armazones
+ATMOSPHERE 26 Y     // Should be slightly better for Armazones than profiles 1 (tropical) or 10 (HESS)
+MAGNET 21.371 -8.924   // Magnetic field at assumed site [H, Z] (muT) (for Armazones site)
+ARRANG  0.            // Rotation of array to north [D] (degree); use zero here for any site for now
+#endif
+*
+#ifdef SITE_ARMAZONES_2K
+* This is for the alternative site at a lower altitide ('Armazones-2K'):
+*   24.69 deg South, 70.31 deg West, altitude: 2100 m a.s.l.
+* Atmosphere 26 at altitude 2100.0 m:
+*   Atmospheric depth at ground level: 803.606 g/cm^2
+*   Density at ground level: 0.000955901 g/cm^3
+*   Refractivity at ground level: 0.000220978
+*   Maximum Cherenkov angle at ground level: 1.2044 deg.
+*   Cherenkov light emitted at half of max. Ch. angle arriving within given dist. from particle impact (no bending/scattering):
+*     Emission at h=2.528 km a.s.l., t=763.444 g/cm^2 (half of 1.179 deg.): within 4.400 m.
+*     Emission at h=2.831 km a.s.l., t=736.235 g/cm^2 (half of 1.161 deg.): within 7.400 m.
+*     Emission at h=3.423 km a.s.l., t=685.103 g/cm^2 (half of 1.126 deg.): within 13.000 m.
+*     Emission at h=4.712 km a.s.l., t=584.310 g/cm^2 (half of 1.053 deg.): within 24.000 m.
+# ifdef TEL_SST
+FIXCHI 755.
+# endif
+# ifdef TEL_MST
+FIXCHI 680.
+# endif
+# ifdef TEL_LST
+FIXCHI 580.
+# endif
+OBSLEV 2100.E2      // Observation level (in cm) for Armazones (lower-altitude option)
+ATMOSPHERE 26 Y     // Should be slightly better for Armazones than profiles 1 (tropical) or 10 (HESS)
+MAGNET 21.371 -8.924   // Magnetic field at assumed site [H, Z] (muT) (for Armazones site)
+ARRANG  0.            // Rotation of array to north [D] (degree); use zero here for any site for now
+#endif
+*
+#ifdef SITE_ARMAZONES_2000
+* The geographical coordinates of the Armazones site candidate are:
+*   24.57 deg South, 70.20 deg West, altitude: 2000 m a.s.l.
+* Atmosphere 26 at altitude 2000.0 m:
+*   Atmospheric depth at ground level: 813.290 g/cm^2
+*   Density at ground level: 0.000965611 g/cm^3
+*   Refractivity at ground level: 0.000223228
+*   Maximum Cherenkov angle at ground level: 1.2105 deg.
+*   Cherenkov light emitted at half of max. Ch. angle arriving within given dist. from particle impact (no bending/scattering):
+*     Emission at h=2.426 km a.s.l., t=772.853 g/cm^2 (half of 1.185 deg.): within 4.400 m.
+*     Emission at h=2.727 km a.s.l., t=745.454 g/cm^2 (half of 1.167 deg.): within 7.400 m.
+*     Emission at h=3.316 km a.s.l., t=694.141 g/cm^2 (half of 1.132 deg.): within 13.000 m.
+*     Emission at h=4.596 km a.s.l., t=592.796 g/cm^2 (half of 1.059 deg.): within 24.000 m.
+# ifdef TEL_SST
+FIXCHI 772.
+# endif
+# ifdef TEL_MST
+FIXCHI 694.
+# endif
+# ifdef TEL_LST
+FIXCHI 592.
+# endif
+OBSLEV 2000.E2      // Observation level (in cm) for Armazones (lower-altitude option)
+ATMOSPHERE 26 Y     // Should be slightly better for Armazones than profiles 1 (tropical) or 10 (HESS)
+MAGNET 21.371 -8.924   // Magnetic field at assumed site [H, Z] (muT) (for Armazones site)
+ARRANG  0.            // Rotation of array to north [D] (degree); use zero here for any site for now
+#endif
+*
+#ifdef SITE_SPM
+* The geographical coordinates of the San Pedro Martir (SPM) site candidate are:
+*   31.01 deg North, 115.48 deg West, altitude: 2434 m a.s.l.
+* Atmosphere 32 at altitude 2434.0 m:
+*   Atmospheric depth at ground level: 788.515 g/cm^2
+*   Density at ground level: 0.000944883 g/cm^3
+*   Refractivity at ground level: 0.000218401
+*   Maximum Cherenkov angle at ground level: 1.1974 deg.
+*   Cherenkov light emitted at half of max. Ch. angle arriving within given dist. from particle impact (no bending/scattering):
+*     Emission at h=2.864 km a.s.l., t=748.837 g/cm^2 (half of 1.171 deg.): within 4.400 m.
+*     Emission at h=3.169 km a.s.l., t=721.665 g/cm^2 (half of 1.153 deg.): within 7.400 m.
+*     Emission at h=3.766 km a.s.l., t=670.895 g/cm^2 (half of 1.119 deg.): within 13.000 m.
+*     Emission at h=5.062 km a.s.l., t=570.810 g/cm^2 (half of 1.046 deg.): within 24.000 m.
+# ifdef TEL_SST
+FIXCHI 748.
+# endif
+# ifdef TEL_MST
+FIXCHI 670.
+# endif
+# ifdef TEL_LST
+FIXCHI 570.
+# endif
+OBSLEV 2434.E2      // Observation level (in cm) for SPM
+ATMOSPHERE 32 Y     // Should be slightly better for SPM than profiles 1 (tropical) or 10 (HESS)
+MAGNET 25.214 38.258   // Magnetic field at assumed site [H, Z] (muT) (for SPM site)
+ARRANG  0.            // Rotation of array to north [D] (degree); use zero here for any site for now
+#endif
+*
+#ifdef SITE_US
+* The geographical coordinates of the two U.S. site candidates are:
+*   35.04 deg North, 111.04 deg West, altitude: 1680 m a.s.l. Meteor crater
+*   35.14 deg North, 112.87 deg West, altitude: 1630 m a.s.l. Yavapai Ranch
+* Atmosphere 34 at altitude 1655.0 m:
+*   Atmospheric depth at ground level: 864.374 g/cm^2
+*   Density at ground level: 0.00102475 g/cm^3
+*   Refractivity at ground level: 0.000236893
+*   Maximum Cherenkov angle at ground level: 1.2470 deg.
+*   Cherenkov light emitted at half of max. Ch. angle arriving within given dist. from particle impact (no bending/scattering):
+*     Emission at h=2.068 km a.s.l., t=823.079 g/cm^2 (half of 1.221 deg.): within 4.400 m.
+*     Emission at h=2.360 km a.s.l., t=794.660 g/cm^2 (half of 1.203 deg.): within 7.400 m.
+*     Emission at h=2.929 km a.s.l., t=742.004 g/cm^2 (half of 1.169 deg.): within 13.000 m.
+*     Emission at h=4.158 km a.s.l., t=637.749 g/cm^2 (half of 1.099 deg.): within 24.000 m.
+# ifdef TEL_SST
+FIXCHI 823.
+# endif
+# ifdef TEL_MST
+FIXCHI 742.
+# endif
+# ifdef TEL_LST
+FIXCHI 637.
+# endif
+OBSLEV 1655.E2      // Observation level (in cm) for U.S. sites (average); Yavapai: 1630, Meteor Crater: 1680
+ATMOSPHERE 34 Y     // Should be better for U.S. sites than profiles 1 (tropical) or 10 (HESS)
+MAGNET 23.529 42.917   // Magnetic field at assumed site [H, Z] (muT) (for Meteor Crater site)
+* MAGNET 23.633 42.603   // Magnetic field at assumed site [H, Z] (muT) (for Yavapai site)
+ARRANG  0.            // Rotation of array to north [D] (degree); use zero here for any site for now
+#endif
+*
+#ifdef SITE_TENERIFE
+* The geographical coordinates of the Izana (Tenerife) site candidate are:
+*   28.28 deg North, 16.54 deg West, altitude: 2290 m a.s.l.
+* Atmosphere 36 at altitude 2290.0 m:
+*   Atmospheric depth at ground level: 801.523 g/cm^2
+*   Density at ground level: 0.000954538 g/cm^3
+*   Refractivity at ground level: 0.000220659
+*   Maximum Cherenkov angle at ground level: 1.2035 deg.
+*   Cherenkov light emitted at half of max. Ch. angle arriving within given dist. from particle impact (no bending/scattering):
+*     Emission at h=2.718 km a.s.l., t=761.535 g/cm^2 (half of 1.178 deg.): within 4.400 m.
+*     Emission at h=3.021 km a.s.l., t=734.414 g/cm^2 (half of 1.160 deg.): within 7.400 m.
+*     Emission at h=3.613 km a.s.l., t=683.219 g/cm^2 (half of 1.126 deg.): within 13.000 m.
+*     Emission at h=4.899 km a.s.l., t=582.653 g/cm^2 (half of 1.054 deg.): within 24.000 m.
+# ifdef TEL_SST
+FIXCHI 761.
+# endif
+# ifdef TEL_MST
+FIXCHI 683.
+# endif
+# ifdef TEL_LST
+FIXCHI 582.
+# endif
+OBSLEV 2290.E2      // Observation level (in cm) for SPM
+ATMOSPHERE 36 Y     // Should be slightly better for SPM than profiles 1 (tropical) or 10 (HESS)
+MAGNET 30.792 23.163   // Magnetic field at assumed site [H, Z] (muT) (for SPM site)
+ARRANG  0.            // Rotation of array to north [D] (degree); use zero here for any site for now
+#endif
+*
+#ifdef SITE_HANLE
+* The geographical coordinates of the Hanle former site candidate (India) are:
+* ?:?:? (d:m:s) South - ?:?:? (d:m:s) East
+* Altitude: 4500 m a.s.l.
+* Atmosphere 1 at altitude 4500.0 m:
+*   Atmospheric depth at ground level: 610.408 g/cm^2
+*   Density at ground level: 0.000756649 g/cm^3
+*   Refractivity at ground level: 0.000174713
+*   Maximum Cherenkov angle at ground level: 1.0709 deg.
+*   Cherenkov light emitted at half of max. Ch. angle arriving within given dist. from particle impact (no bending/scattering):
+*     Emission at h=4.982 km a.s.l., t=574.995 g/cm^2 (half of 1.046 deg.): within 4.400 m.
+*     Emission at h=5.325 km a.s.l., t=550.496 g/cm^2 (half of 1.027 deg.): within 7.400 m.
+*     Emission at h=6.001 km a.s.l., t=505.211 g/cm^2 (half of 0.992 deg.): within 13.000 m.
+*     Emission at h=7.499 km a.s.l., t=414.915 g/cm^2 (half of 0.917 deg.): within 24.000 m.
+# ifdef TEL_SST
+FIXCHI 574.
+# endif
+# ifdef TEL_MST
+FIXCHI 505.
+# endif
+# ifdef TEL_LST
+FIXCHI 414.
+# endif
+OBSLEV  4500.E2       // Observation level (in cm) for Hanle
+ATMOSPHERE 1 Y        // Should do for now
+MAGNET  31.7  38.7    // Magnetic field at assumed site [H, Z] (muT) (for Hanle site)
+ARRANG  0.            // Rotation of array to north [D] (degree); use zero here for any site for now
+#endif
+*
+#ifdef SITE_HESS
+* The geographical coordinates of the Goellschau (HESS) site candidate are:
+* 23:22:x (d:m:s) South - 16:29:x (d:m:s) East 
+* Altitude: 1800 m a.s.l.
+* Atmosphere 10 at altitude 1800.0 m:
+*   Atmospheric depth at ground level: 843.181 g/cm^2
+*   Density at ground level: 0.00098963 g/cm^3
+*   Refractivity at ground level: 0.000229019
+*   Maximum Cherenkov angle at ground level: 1.2261 deg.
+*   Cherenkov light emitted at half of max. Ch. angle arriving within given dist. from particle impact (no bending/scattering):
+*     Emission at h=2.220 km a.s.l., t=802.317 g/cm^2 (half of 1.201 deg.): within 4.400 m.
+*     Emission at h=2.516 km a.s.l., t=774.471 g/cm^2 (half of 1.184 deg.): within 7.400 m.
+*     Emission at h=3.095 km a.s.l., t=722.723 g/cm^2 (half of 1.150 deg.): within 13.000 m.
+*     Emission at h=4.346 km a.s.l., t=620.074 g/cm^2 (half of 1.080 deg.): within 24.000 m.
+# ifdef TEL_SST
+FIXCHI 802.
+# endif
+#ifdef TEL_MST
+FIXCHI 722.
+# endif
+# ifdef TEL_LST
+FIXCHI 620.
+# endif
+OBSLEV  1800.E2       // Observation level (in cm) for HESS Site
+ATMOSPHERE 10 Y       // Based on Windhoek radiosonde data.
+MAGNET  12.0  -25.6   // Magnetic field at assumed site [H, Z] (muT) (for HESS site)
+ARRANG  0.            // Rotation of array to north [D] (degree); use zero here for any site for now
+#endif
+*
+#ifdef SITE_PROD1
+* Site parameters as assumed for prod-1:
+* Atmosphere 1 at altitude 2000.0 m:
+*   Atmospheric depth at ground level: 825.105 g/cm^2
+*   Density at ground level: 0.000969699 g/cm^3
+*   Refractivity at ground level: 0.000224485
+*   Maximum Cherenkov angle at ground level: 1.2139 deg.
+*   Cherenkov light emitted at half of max. Ch. angle arriving within given dist. from particle impact (no bending/scattering):
+*     Emission at h=2.425 km a.s.l., t=784.628 g/cm^2 (half of 1.188 deg.): within 4.400 m.
+*     Emission at h=2.725 km a.s.l., t=757.165 g/cm^2 (half of 1.169 deg.): within 7.400 m.
+*     Emission at h=3.312 km a.s.l., t=705.766 g/cm^2 (half of 1.135 deg.): within 13.000 m.
+*     Emission at h=4.578 km a.s.l., t=604.542 g/cm^2 (half of 1.067 deg.): within 24.000 m.
+# ifdef TEL_SST
+FIXCHI 784.
+# endif
+# ifdef TEL_MST
+FIXCHI 705.
+# endif
+# ifdef TEL_LST
+FIXCHI 604.
+# endif
+OBSLEV  2000.E2       // observation level (in cm)
+ATMOSPHERE 1 Y        // tropical atmosphere, with refraction
+MAGNET  27.5  -15.    // magnetic field at equator, l=0 [H, Z] (muT)
+ARRANG  0.            // Rotation of array to north [D] (degree); use zero here for any site for now
+#endif
+*
+*
+* [ Telescope positions, for IACT option. Using CSCAT extending beyond/close to edge/to 80% of dish. ]
+*
+#define LSTHT  16.00E2
+#define LSTRAD 12.50E2
+#define MSTHT  9.00E2
+#define MSTRAD 8.60E2
+#define SSTHT  3.25E2
+#define SSTRAD 3.00E2
+*
+#ifdef TEL_LST
+TELESCOPE    0.0E2    0.0E2  $(LSTHT)    $(LSTRAD)  # LST
+* CSCAT  1  12.3E2  0.  # Just beyond dish
+* CSCAT  1  11E2  0.    # Close to edge of dish
+CSCAT  1  9.8E2  0.     # To 80% of dish radius
+#endif
+#ifdef TEL_MST
+TELESCOPE    0.0E2    0.0E2  $(MSTHT)     $(MSTRAD)  # MST
+* CSCAT  1  9.1E2  0.  # Just beyond dish + 1.6 m axis off-center
+* CSCAT  1  8.6E2  0.  # Close to edge of dish +  1.6 m axis off-center
+CSCAT  1  7.2E2  0.    # To 80% of dish + 1.6 m axis off-center
+#endif
+#ifdef TEL_SST
+TELESCOPE    0.0E2    0.0E2   $(SSTHT)     $(SSTHT)  # SST (4 m)
+* CSCAT  1  3.0E2  0.  # Just beyond dish + 0.9 m axis off-center
+* CSCAT  1  2.8E2  0.  # Close to edge of dish + 0.9 m axis off-center
+CSCAT  1  2.5E2  0.   # To 80% of dish + 0.9 m axis off-center
+#endif
+#ifdef NSCAT
+# ifdef CSCAT
+CSCAT    $(NSCAT) $(CSCAT)E2 0. // Requires NSCAT (1/10/20) and CSCAT (in units of meters).
+# endif
+#endif
+*
+* [Interaction flags]
+*
+FIXHEI  0.  0          // First interaction height & target (0. 0 for random)
+* FIXCHI  0.             // Starting altitude (g/cm**2). 0. is at boundary to space.
+TSTART  T              // Needed for emission and scattering of primary
+ECUTS   0.3  0.1  0.020  0.020         // Energy cuts for particles
+MUADDI  F                              // Additional info for muons not needed
+MUMULT  T                              // Muon multiple scattering angle
+LONGI   T  20.  F  F                   // Longit.distr. & step size & fit
+MAXPRT  0                              // Max. number of printed events
+ECTMAP  1.E6                           // Cut on gamma factor for printout
+STEPFC  1.0                            // Mult. scattering step length factor
+*
+* [ Cherenkov emission parameters ]
+*
+CERSIZ  5.         // Not above 10 for super/ultra-bialkali QE; 7 is fairly OK; 5 should be safe.
+CERFIL  F                              // No old-style Cherenkov output to extra file
+CWAVLG  230.  900.                     // Cherenkov wavelength band
+*
+* [ Debugging and output options ]
+*
+DEBUG   F  6  F  1000000               // Debug flag and logical unit for output
+DATBAS yes                             // Write a file with parameters used
+DIRECT  /dev/null                      // /dev/null means no normal CORSIKA data written
+*
+* For evaluating multiple types of telescopes/cameras with multiple optical efficiency
+* factors it may be better to write the photon bunches to disk and run the
+* telescope simulations one after the other, instead of all in parallel pipes.
+*
+IACT PRINT_EVENTS 100 100 1
+*
+#ifdef WRITE_CORSIKA_FILE
+*
+* IACT interface writes its output (through gzip or zstd or whatever) into a file
+*
+# ifndef EXT
+#  ifdef WITH_ZSTD
+#   define EXT zst
+#  else
+#   define EXT gz
+#  endif
+# endif
+# ifdef TEL_LST
+TELFIL cta-prod3-test-muon-LST.corsika.${EXT}       // If telescope simulation not done directly in pipe
+# endif
+# ifdef TEL_MST
+TELFIL cta-prod3-test-muon-MST.corsika.${EXT}       // If telescope simulation not done directly in pipe
+# endif
+# ifdef TEL_SST
+TELFIL cta-prod3-test-muon-SST.corsika.${EXT}       // If telescope simulation not done directly in pipe
+# endif
+#else
+*
+* IACT interface writes its output through multipipe_corsika to immediate processing.
+* Instead of different intermediate (symlinked) scripts we can now pass configuration
+* options down to the one common script and can control the simulation variant from here.
+*
+TELFIL |${SIM_TELARRAY_PATH}/run_sim_cta     // Telescope photon bunch output (eventio format)
+# ifdef TEL_LST
+IACT TELOPT -c cta-prod4-lst
+# endif
+# ifdef TEL_MST
+#  if defined(MST_FC)
+IACT TELOPT -c cta-prod4-mst-fc
+#  elif defined(MST_NC)
+IACT TELOPT -c cta-prod4-mst-nc
+#  elif defined(MST_SC)
+IACT TELOPT -c cta-prod4-sct
+#  else
+IACT TELOPT -c cta-prod4-mst
+#  endif
+# endif
+# ifdef TEL_SST
+#  if defined(SST_1M)
+IACT TELOPT -c cta-prod4-sst-1m
+#  elif defined(SST_ASTRI)
+IACT TELOPT -c cta-prod4-sst-astri
+#  elif defined(SST_GCT)
+IACT TELOPT -c cta-prod4-sst-gct
+#  else
+IACT TELOPT -c cta-prod4-sst
+#  endif
+# endif
+#endif
+*
+* [ IACT tuning parameters ]
+*
+IACT SPLIT_AUTO 15M                    // Split data with more than 15 million bunches
+IACT IO_BUFFER 800MB                   // At 32 bytes per bunch this could be up to 500 MB
+IACT MAX_BUNCHES 1000000               // Let photon bunch thinning set in earlier.
+*
+* [ This is the end, my friend ]
+*
+EXIT                                   // terminates input
+* ========================================================
